@@ -1,8 +1,9 @@
 package port
 
 import (
-	"errors"
 	"context"
+	"errors"
+	"smart-warehouse/internal/domain"
 )
 
 var ErrNotFound = errors.New("Not found")
@@ -13,5 +14,7 @@ type EventRepository interface {
 }
 
 type InventoryRepository interface {
-	
+	GetByProductAndZone(ctx context.Context, productID string, zoneID string) (*domain.Inventory, error)
+	GetByProduct(ctx context.Context, productID string) (*domain.ProductInventory, error)
+	GetByZone(ctx context.Context, zoneID string) ([]*domain.ZoneInventory, error)
 }

@@ -10,10 +10,41 @@ import (
 
 	"smart-warehouse/internal/infrastructure/config"
 	"smart-warehouse/internal/infrastructure/kafka"
+	"smart-warehouse/internal/infrastructure/cassandra"
 )
 
 func main() {
 	cfg := config.Load()
+
+	log.Println("Initializing Bootstrap...")
+	bootstrap, err := cassandra.NewBootstrapClient(
+		cfg.CassandraCfg.Hosts,
+		cfg.CassandraCfg.Username,
+		cfg.CassandraCfg.Password,
+	)
+	if err != nil {
+		log.Printf("Error while creating bootstrap: %s", err.Error())
+		os.Exit(1)
+	}
+	defer bootstrap.Close()
+
+	if err := bootstrap.RunMigrations(cfg.CassandraCfg.Keyspace); err != nil {
+		log.Printf("Failed to run migrations: %s", err.Error())
+		os.Exit(1)
+	}
+
+	log.Println("Initializing Cassandra...")
+	cassandraRepo, err := cassandra.NewRepository(
+		cfg.CassandraCfg.Hosts,
+		cfg.CassandraCfg.Keyspace,
+		cfg.CassandraCfg.Username,
+		cfg.CassandraCfg.Password,
+	)
+	if err != nil {
+		log.Printf("Error while creating repo: %s", err.Error())
+		os.Exit(1)
+	}
+	defer cassandraRepo.Close()
 
 	handler := kafka.NewSimpleHandler()
 

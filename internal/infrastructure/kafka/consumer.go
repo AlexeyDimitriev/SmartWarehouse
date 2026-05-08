@@ -124,7 +124,7 @@ func (c *Consumer) processMessage(ctx context.Context, msg kafka.Message) {
 	}
 
 	log.Printf(
-		"[EVENT] Successfully processed: event_id=%s, event_type=%s, offset=%d, partition=%d",
+		"EVENT Successfully processed: event_id=%s, event_type=%s, offset=%d, partition=%d",
 		event.EventID,
 		event.EventType,
 		msg.Offset,
