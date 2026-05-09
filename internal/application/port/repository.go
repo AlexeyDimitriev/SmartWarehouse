@@ -22,7 +22,7 @@ type InventoryRepository interface {
 	GetOrderItems(ctx context.Context, orderID string) ([]domain.OrderItem, error)
 	UpdateOrderStatus(ctx context.Context, orderID string, status string, completedAt time.Time) error
 
-	GetLatestVersion(ctx context.Context, productID string, zoneID string) (int64, error)
+	GetLastEventTimestamp(ctx context.Context, productID string, zoneID string) (time.Time, error)
 
 	IsEventProcessed(ctx context.Context, eventID string) (bool, error)
 	MarkEventProcessed(ctx context.Context, eventID string) (error)

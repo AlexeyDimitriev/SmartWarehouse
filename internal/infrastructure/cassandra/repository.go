@@ -235,21 +235,21 @@ func (r *Repository) UpdateOrderStatus(ctx context.Context, orderID, status stri
 	).Exec()
 }
 
-func (r *Repository) GetLatestVersion(ctx context.Context, productID, zoneID string) (int64, error) {
-    var version int64
+func (r *Repository) GetLastEventTimestamp(ctx context.Context, productID, zoneID string) (time.Time, error) {
+    var ts time.Time
     err := r.session.Query(`
-        SELECT event_version FROM inventory_by_product_zone 
+        SELECT last_updated FROM inventory_by_product_zone 
         WHERE product_id = ? AND zone_id = ?`,
         productID, zoneID,
-    ).WithContext(ctx).Scan(&version)
-    
+    ).WithContext(ctx).Scan(&ts)
+
     if err == gocql.ErrNotFound {
-        return 0, nil
+        return time.Time{}, nil
     }
     if err != nil {
-        return 0, fmt.Errorf("Failed to get latest version: %w", err)
+        return time.Time{}, fmt.Errorf("Failed to get last event timestamp: %w", err)
     }
-    return version, nil
+    return ts, nil
 }
 
 func (r *Repository) IsEventProcessed(ctx context.Context, eventID string) (bool, error) {

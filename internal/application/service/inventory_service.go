@@ -69,18 +69,15 @@ func (s *InventoryService) HandleEvent(ctx context.Context, event *domain.Event)
     zoneID := extractZoneID(event.Payload)
 
     if productID != "" && zoneID != "" {
-        latestVer, err := s.repo.GetLatestVersion(ctx, productID, zoneID)
+        lastUpdated, err := s.repo.GetLastEventTimestamp(ctx, productID, zoneID)
         if err != nil {
-            return fmt.Errorf("get latest version: %w", err)
+            return fmt.Errorf("Failed to get last updated: %w", err)
         }
 
-        if event.Payload["version"] != nil {
-            eventVer := int64(event.Payload["version"].(float64))
-            if eventVer <= latestVer {
-                log.Printf("[VERSION] Skipping stale event %s: event_ver=%d, latest_ver=%d", event.EventID, eventVer, latestVer)
-                return nil
-            }
-        }
+		if (lastUpdated != time.Time{}) && (!event.Timestamp.After(lastUpdated)) {
+			log.Printf("Skipping stale event %s: timestamp=%v, last_updated=%v", event.EventID, event.Timestamp, lastUpdated)
+			return nil
+		}
     }
 	
 	var err error
