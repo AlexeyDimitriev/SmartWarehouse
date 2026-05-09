@@ -230,6 +230,25 @@ func (r *Repository) GetLatestVersion(ctx context.Context, productID, zoneID str
     return version, nil
 }
 
+func (r *Repository) IsEventProcessed(ctx context.Context, eventID string) (bool, error) {
+    var id string
+    err := r.session.Query(`SELECT event_id FROM processed_events WHERE event_id = ?`, eventID).
+        WithContext(ctx).Scan(&id)
+    
+    if err == gocql.ErrNotFound {
+        return false, nil
+    }
+    if err != nil {
+        return false, fmt.Errorf("Failed to check processed event: %w", err)
+    }
+    return true, nil
+}
+
+func (r *Repository) MarkEventProcessed(ctx context.Context, eventID string) error {
+    return r.session.Query(`INSERT INTO processed_events (event_id) VALUES (?)`, eventID).
+        WithContext(ctx).Exec()
+}
+
 func (r *Repository) Session() *gocql.Session {
 	return r.session
 }

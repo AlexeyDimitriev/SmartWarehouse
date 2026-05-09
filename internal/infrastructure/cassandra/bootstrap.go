@@ -99,6 +99,10 @@ func (b *BootstrapClient) RunMigrations(keyspace string) error {
 			quantity INT,
 			PRIMARY KEY ((order_id), product_id)
 		)`, keyspace),
+
+		fmt.Sprintf(`CREATE TABLE IF NOT EXISTS %s.processed_events (
+			event_id TEXT PRIMARY KEY
+		)`, keyspace),
 	}
 
 	for i, q := range queries {

@@ -10,11 +10,6 @@ import (
 
 var ErrNotFound = errors.New("Not found")
 
-type EventRepository interface {
-	IsProcessed(ctx context.Context, eventID string) (bool, error)
-	MarkProcessed(ctx context.Context, eventID string) (error)
-}
-
 type InventoryRepository interface {
 	GetByProductAndZone(ctx context.Context, productID string, zoneID string) (*domain.Inventory, error)
 	GetByProduct(ctx context.Context, productID string) (*domain.ProductInventory, error)
@@ -28,4 +23,7 @@ type InventoryRepository interface {
 	UpdateOrderStatus(ctx context.Context, orderID string, status string, completedAt time.Time) error
 
 	GetLatestVersion(ctx context.Context, productID string, zoneID string) (int64, error)
+
+	IsProcessed(ctx context.Context, eventID string) (bool, error)
+	MarkProcessed(ctx context.Context, eventID string) (error)
 }
