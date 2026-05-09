@@ -70,6 +70,7 @@ func (b *BootstrapClient) RunMigrations(keyspace string) error {
 			available INT,
 			reserved INT,
 			last_updated TIMESTAMP,
+			event_version BIGINT,
 			PRIMARY KEY (product_id)
 		)`, keyspace),
 
@@ -79,7 +80,24 @@ func (b *BootstrapClient) RunMigrations(keyspace string) error {
 			available INT,
 			reserved INT,
 			last_updated TIMESTAMP,
+			event_version BIGINT,
 			PRIMARY KEY ((zone_id), product_id)
+		)`, keyspace),
+
+		fmt.Sprintf(`CREATE TABLE IF NOT EXISTS %s.orders (
+			order_id TEXT,
+			status TEXT,
+			created_at TIMESTAMP,
+			completed_at TIMESTAMP,
+			PRIMARY KEY (order_id)
+		)`, keyspace),
+
+		fmt.Sprintf(`CREATE TABLE IF NOT EXISTS %s.order_items (
+			order_id TEXT,
+			product_id TEXT,
+			zone_id TEXT,
+			quantity INT,
+			PRIMARY KEY ((order_id), product_id)
 		)`, keyspace),
 	}
 

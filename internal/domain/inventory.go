@@ -18,6 +18,7 @@ type ProductInventory struct {
 	Available int
 	Reserved int 
 	LastUpdated time.Time
+	EventVersion int64
 }
 
 // inventory_by_zone
@@ -27,4 +28,5 @@ type ZoneInventory struct {
 	Available int
 	Reserved int 
 	LastUpdated time.Time
+	EventVersion int64
 }

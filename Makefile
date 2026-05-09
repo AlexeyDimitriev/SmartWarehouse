@@ -10,6 +10,11 @@ run:
 test:
 	go test ./...
 
+.PHONY: test-cycle
+test-cycle:
+	@echo "Running test-cycle script..."
+	./scripts/test-cycle.sh
+
 .PHONY: docker-up
 docker-up:
 	docker-compose up -d

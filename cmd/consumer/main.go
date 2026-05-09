@@ -11,6 +11,7 @@ import (
 	"smart-warehouse/internal/infrastructure/config"
 	"smart-warehouse/internal/infrastructure/kafka"
 	"smart-warehouse/internal/infrastructure/cassandra"
+	"smart-warehouse/internal/application/service"
 )
 
 func main() {
@@ -46,7 +47,8 @@ func main() {
 	}
 	defer cassandraRepo.Close()
 
-	handler := kafka.NewSimpleHandler()
+	invService := service.NewInventoryService(cassandraRepo)
+	handler := kafka.NewServiceHandler(invService)
 
 	consumer := kafka.NewConsumer(
 		kafka.ConsumerConfig{
