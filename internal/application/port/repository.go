@@ -24,6 +24,6 @@ type InventoryRepository interface {
 
 	GetLatestVersion(ctx context.Context, productID string, zoneID string) (int64, error)
 
-	IsProcessed(ctx context.Context, eventID string) (bool, error)
-	MarkProcessed(ctx context.Context, eventID string) (error)
+	IsEventProcessed(ctx context.Context, eventID string) (bool, error)
+	MarkEventProcessed(ctx context.Context, eventID string) (error)
 }

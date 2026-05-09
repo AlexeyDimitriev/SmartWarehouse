@@ -56,7 +56,7 @@ func extractZoneID(payload map[string]interface{}) string {
 }
 
 func (s *InventoryService) HandleEvent(ctx context.Context, event *domain.Event) error {
-    alreadyProcessed, procErr := s.repo.IsProcessed(ctx, event.EventID)
+    alreadyProcessed, procErr := s.repo.IsEventProcessed(ctx, event.EventID)
 	if procErr != nil {
 		return fmt.Errorf("Failed to check is event is processed: %w", procErr)
 	}
@@ -109,7 +109,7 @@ func (s *InventoryService) HandleEvent(ctx context.Context, event *domain.Event)
 	if err != nil {
 		return fmt.Errorf("Event %s failed: %w", event.EventID, err)
 	}
-	return s.repo.MarkProcessed(ctx, event.EventID)
+	return s.repo.MarkEventProcessed(ctx, event.EventID)
 }
 
 func (s *InventoryService) handleProductReceived(ctx context.Context, event *domain.Event) error {
