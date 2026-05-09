@@ -129,11 +129,13 @@ func (s *InventoryService) handleProductReceived(ctx context.Context, event *dom
 	inv.Available += p.Quantity
 	inv.EventVersion++
 
-	if err := s.repo.SaveInventory(ctx, inv); err != nil {
-		return fmt.Errorf("Failed to save inventory: %w", err)
-	}
-
-	return s.repo.UpdateProductTotal(ctx, p.ProductID, p.Quantity, 0)
+	return s.repo.SaveInventoryConsistently(
+		ctx,
+		inv,
+		p.ProductID,
+		p.Quantity,
+		0,
+	)
 }
 
 func (s *InventoryService) handleProductShipped(ctx context.Context, event *domain.Event) error {
@@ -156,11 +158,14 @@ func (s *InventoryService) handleProductShipped(ctx context.Context, event *doma
 	inv.Available -= p.Quantity
 	inv.LastUpdated = event.Timestamp
 	inv.EventVersion++
-	if err := s.repo.SaveInventory(ctx, inv); err != nil {
-		return fmt.Errorf("Failed to save inventory: %w", err)
-	}
 
-	return s.repo.UpdateProductTotal(ctx, p.ProductID, -p.Quantity, 0)
+	return s.repo.SaveInventoryConsistently(
+		ctx,
+		inv,
+		p.ProductID,
+		-p.Quantity,
+		0,
+	)
 }
 
 func (s *InventoryService) handleProductMoved(ctx context.Context, event *domain.Event) error {
@@ -183,9 +188,6 @@ func (s *InventoryService) handleProductMoved(ctx context.Context, event *domain
 	fromInv.Available -= p.Quantity
 	fromInv.LastUpdated = event.Timestamp
 	fromInv.EventVersion++
-	if err := s.repo.SaveInventory(ctx, fromInv); err != nil {
-		return err
-	}
 
 	toInv, err := s.getOrCreateInventory(ctx, p.ProductID, p.ToZone, event.Timestamp)
 	if err != nil {
@@ -193,8 +195,14 @@ func (s *InventoryService) handleProductMoved(ctx context.Context, event *domain
 	}
 
 	toInv.Available += p.Quantity
+	toInv.LastUpdated = event.Timestamp
 	toInv.EventVersion++
-	return s.repo.SaveInventory(ctx, toInv)
+
+	return s.repo.SaveInventoriesConsistently(
+		ctx,
+		fromInv,
+		toInv,
+	)
 }
 
 func (s *InventoryService) handleProductReserved(ctx context.Context, event *domain.Event) error {
@@ -218,11 +226,14 @@ func (s *InventoryService) handleProductReserved(ctx context.Context, event *dom
 	inv.Reserved += p.Quantity
 	inv.LastUpdated = event.Timestamp
 	inv.EventVersion++
-	if err := s.repo.SaveInventory(ctx, inv); err != nil {
-		return fmt.Errorf("Failed to save inventory: %w", err)
-	}
 
-	return s.repo.UpdateProductTotal(ctx, p.ProductID, -p.Quantity, p.Quantity)
+	return s.repo.SaveInventoryConsistently(
+		ctx,
+		inv,
+		p.ProductID,
+		-p.Quantity,
+		p.Quantity,
+	)
 }
 
 func (s *InventoryService) handleProductReleased(ctx context.Context, event *domain.Event) error {
@@ -246,11 +257,14 @@ func (s *InventoryService) handleProductReleased(ctx context.Context, event *dom
 	inv.Available += p.Quantity
 	inv.LastUpdated = event.Timestamp
 	inv.EventVersion++
-	if err := s.repo.SaveInventory(ctx, inv); err != nil {
-		return fmt.Errorf("Failed to save inventory: %w", err)
-	}
 
-	return s.repo.UpdateProductTotal(ctx, p.ProductID, p.Quantity, -p.Quantity)
+	return s.repo.SaveInventoryConsistently(
+		ctx,
+		inv,
+		p.ProductID,
+		p.Quantity,
+		-p.Quantity,
+	)
 }
 
 func (s *InventoryService) handleInventoryCounted(ctx context.Context, event *domain.Event) error {
@@ -274,11 +288,14 @@ func (s *InventoryService) handleInventoryCounted(ctx context.Context, event *do
 	inv.Reserved = 0 // maybe?
 	inv.LastUpdated = event.Timestamp
 	inv.EventVersion++
-	if err := s.repo.SaveInventory(ctx, inv); err != nil {
-		return fmt.Errorf("Failed to save inventory: %w", err)
-	}
 
-	return s.repo.UpdateProductTotal(ctx, p.ProductID, p.Quantity - oldAvailable, -oldReserved)
+	return s.repo.SaveInventoryConsistently(
+		ctx,
+		inv,
+		p.ProductID,
+		p.Quantity - oldAvailable,
+		-oldReserved,
+	)
 }
 
 func (s *InventoryService) handleOrderCreated(ctx context.Context, event *domain.Event) error {
@@ -321,13 +338,15 @@ func (s *InventoryService) handleOrderCreated(ctx context.Context, event *domain
 		inv.Reserved += pos.Quantity
 		inv.LastUpdated = event.Timestamp
 		inv.EventVersion++
-		
-		if err := s.repo.SaveInventory(ctx, inv); err != nil {
-			return fmt.Errorf("Failed to reserve inventory for %s: %w", pos.ProductID, err)
-		}
 
-		if err := s.repo.UpdateProductTotal(ctx, pos.ProductID, -pos.Quantity, pos.Quantity); err != nil {
-			return fmt.Errorf("Failed to reserve inventory for %s: %w", pos.ProductID, err)
+		if err := s.repo.SaveInventoryConsistently(
+			ctx,
+			inv,
+			pos.ProductID,
+			-pos.Quantity,
+			pos.Quantity,
+		); err != nil {
+			return err
 		}
 	}
 
@@ -363,12 +382,14 @@ func (s *InventoryService) handleOrderCompleted(ctx context.Context, event *doma
 		inv.LastUpdated = event.Timestamp
 		inv.EventVersion++
 
-		if err := s.repo.SaveInventory(ctx, inv); err != nil {
-			return fmt.Errorf("Failed to save inventory after completion: %w", err)
-		}
-
-		if err := s.repo.UpdateProductTotal(ctx, item.ProductID, item.Quantity, -item.Quantity); err != nil {
-			return fmt.Errorf("Failed to save inventory after completion: %w", err)
+		if err := s.repo.SaveInventoryConsistently(
+			ctx,
+			inv,
+			item.ProductID,
+			item.Quantity,
+			-item.Quantity,
+		); err != nil {
+			return err
 		}
 	}
 

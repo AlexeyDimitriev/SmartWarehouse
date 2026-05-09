@@ -113,42 +113,64 @@ func (r *Repository) GetByZone(ctx context.Context, zoneID string) ([]*domain.Zo
     return result, nil
 }
 
-func (r *Repository) SaveInventory(ctx context.Context, inv *domain.Inventory) error {
-    if err := r.session.Query(`
+func (r *Repository) SaveInventory(ctx context.Context, batch *gocql.Batch, inv *domain.Inventory) error {
+    batch.Query(`
         INSERT INTO inventory_by_product_zone 
         (product_id, zone_id, available, reserved, last_updated, event_version) 
         VALUES (?, ?, ?, ?, ?, ?)`,
         inv.ProductID, inv.ZoneID, inv.Available, inv.Reserved, inv.LastUpdated, inv.EventVersion,
-    ).WithContext(ctx).Exec(); err != nil {
-        return fmt.Errorf("Failed to save to inventory_by_product_zone: %w", err)
-    }
+    )
 
-    if err := r.session.Query(`
+    batch.Query(`
         INSERT INTO inventory_by_zone 
         (zone_id, product_id, available, reserved, last_updated, event_version) 
         VALUES (?, ?, ?, ?, ?, ?)`,
         inv.ZoneID, inv.ProductID, inv.Available, inv.Reserved, inv.LastUpdated, inv.EventVersion,
-    ).WithContext(ctx).Exec(); err != nil {
-        return fmt.Errorf("Failed to save to inventory_by_zone: %w", err)
-    }
+    )
 
-	if err := r.session.Query(`
+	batch.Query(`
 		INSERT INTO inventory_by_product (product_id, event_version, last_updated)
 		VALUES (?, ?, ?)`,
         inv.ProductID, inv.EventVersion, inv.LastUpdated,
-    ).WithContext(ctx).Exec(); err != nil {
-        return fmt.Errorf("Failed to update event_version in inventory_by_product: %w", err)
-    }
+    )
 
     return nil
 }
 
-func (r *Repository) UpdateProductTotal(ctx context.Context, productID string, availDelta, resDelta int) error {
-    return r.session.Query(`UPDATE inventory_by_product 
+func (r *Repository) UpdateProductTotal(ctx context.Context, batch *gocql.Batch, productID string, availDelta, resDelta int) error {
+    batch.Query(`UPDATE inventory_by_product 
         SET available = available + ?, reserved = reserved + ? 
         WHERE product_id = ?`,
         availDelta, resDelta, productID,
-    ).WithContext(ctx).Exec()
+    )
+
+	return nil
+}
+
+func (r *Repository) SaveInventoryConsistently(ctx context.Context, inv *domain.Inventory, productID string, availDelta, resDelta int) error {
+	batch := r.session.NewBatch(gocql.LoggedBatch)
+
+	r.SaveInventory(ctx, batch, inv)
+	r.UpdateProductTotal(ctx, batch, productID, availDelta, resDelta)
+
+	if err := r.session.ExecuteBatch(batch); err != nil {
+		return fmt.Errorf("Failed to save inventory consistently: %w", err)
+	}
+
+	return nil
+}
+
+func (r *Repository) SaveInventoriesConsistently(ctx context.Context, inv1 *domain.Inventory, inv2 *domain.Inventory) error {
+	batch := r.session.NewBatch(gocql.LoggedBatch)
+
+	r.SaveInventory(ctx, batch, inv1)
+	r.SaveInventory(ctx, batch, inv2)
+
+	if err := r.session.ExecuteBatch(batch); err != nil {
+		return fmt.Errorf("Failed to save inventory consistently: %w", err)
+	}
+
+	return nil
 }
 
 func (r *Repository) CreateOrder(ctx context.Context, order *domain.Order) error {

@@ -14,9 +14,9 @@ type InventoryRepository interface {
 	GetByProductAndZone(ctx context.Context, productID string, zoneID string) (*domain.Inventory, error)
 	GetByProduct(ctx context.Context, productID string) (*domain.ProductInventory, error)
 	GetByZone(ctx context.Context, zoneID string) ([]*domain.ZoneInventory, error)
-	SaveInventory(ctx context.Context, inv *domain.Inventory) error
-	UpdateProductTotal(ctx context.Context, productID string, availDelta, resDelta int) error
-	
+	SaveInventoryConsistently(ctx context.Context, inv *domain.Inventory, productID string, availDelta, resDelta int) error
+	SaveInventoriesConsistently(ctx context.Context, inv1 *domain.Inventory, inv2 *domain.Inventory) error
+
 	CreateOrder(ctx context.Context, order *domain.Order) error
 	SaveOrderItems(ctx context.Context, orderID string, items []domain.OrderItem) error
 	GetOrderItems(ctx context.Context, orderID string) ([]domain.OrderItem, error)
