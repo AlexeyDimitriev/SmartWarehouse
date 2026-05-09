@@ -4,10 +4,13 @@ import (
 	"context"
 	"encoding/json"
 	"log"
-	"smart-warehouse/internal/domain"
 	"time"
+	"errors"
 
 	"github.com/segmentio/kafka-go"
+
+	"smart-warehouse/internal/domain"
+	"smart-warehouse/internal/application/service"
 )
 
 type EventHandler interface {
@@ -17,12 +20,14 @@ type EventHandler interface {
 type ConsumerConfig struct {
 	Brokers []string
 	Topic string
+	DLQTopic string
 	ConsumerGroup string
 }
 
 // at-least-once
 type Consumer struct {
 	reader *kafka.Reader
+	dlqWriter *kafka.Writer
 	config ConsumerConfig
 	handler EventHandler
 	done chan struct{}
@@ -40,8 +45,17 @@ func NewConsumer(cfg ConsumerConfig, handler EventHandler) *Consumer {
 		StartOffset: kafka.FirstOffset,
 	})
 
+	dlqWriter := &kafka.Writer{
+		Addr: kafka.TCP(cfg.Brokers...),
+		Topic: cfg.DLQTopic,
+		Balancer: &kafka.LeastBytes{},
+		RequiredAcks: kafka.RequireOne,
+		Async: false,
+	}
+
 	return &Consumer{
 		reader: reader,
+		dlqWriter: dlqWriter,
 		config: cfg,
 		handler: handler,
 		done: make(chan struct{}),
@@ -109,6 +123,9 @@ func (c *Consumer) processMessage(ctx context.Context, msg kafka.Message) {
 			event.EventID,
 			msg.Offset,
 		)
+
+		c.sendToDLQ(ctx, msg, err, c.getErrorCode(err))
+		c.reader.CommitMessages(ctx, msg)
 		return
 	}
 
@@ -132,8 +149,59 @@ func (c *Consumer) processMessage(ctx context.Context, msg kafka.Message) {
 	)
 }
 
+func (c *Consumer) sendToDLQ(ctx context.Context, msg kafka.Message, err error, code string) {
+	var original map[string]interface{}
+	_ = json.Unmarshal(msg.Value, &original)
+
+	eventID := "unknown"
+	if id, ok := original["event_id"].(string); ok {
+		eventID = id
+	}
+
+	dlqEntry := domain.DLQMessage{
+		OriginalEvent: original,
+		ErrorReason: err.Error(),
+		ErrorCode: code,
+		FailedAt: time.Now(),
+		KafkaMetadata: domain.KafkaMetadata{
+			Partition: int32(msg.Partition),
+			Offset: msg.Offset,
+		},
+	}
+
+	payload, marshalErr := json.Marshal(dlqEntry)
+	if marshalErr != nil {
+		log.Printf("Failed to marshal DLQ message: %v", marshalErr)
+		return
+	}
+
+	kafkaMsg := kafka.Message{
+		Key: []byte(eventID),
+		Value: payload,
+	}
+
+	if writeErr := c.dlqWriter.WriteMessages(ctx, kafkaMsg); writeErr != nil {
+		log.Printf("Failed to write to DLQ topic: %v", writeErr)
+	} else {
+		log.Printf("Event %s successfully sent to DLQ", original["event_id"])
+	}
+}
+
+func (c *Consumer) getErrorCode(err error) string {
+	if errors.Is(err, service.ErrInvalidQuantity) {
+		return "VALIDATION_ERROR"
+	}
+	if errors.Is(err, service.ErrInsufficientStock) {
+		return "BUSINESS_RULE_VIOLATION"
+	}
+	return "PROCESSING_ERROR"
+}
+
 func (c *Consumer) Stop() error {
 	log.Println("Stopping kafka consumer...")
+	if c.dlqWriter != nil {
+		c.dlqWriter.Close()
+	}
 	return c.reader.Close()
 }
 

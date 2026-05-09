@@ -23,12 +23,20 @@ docker-up:
 docker-down:
 	docker-compose down
 
-.PHONY: create-topic
-create-topic:
+.PHONY: create-topics
+	create-topics:
+	@echo "Creating warehouse-events topic..."
 	docker exec kafka kafka-topics --create \
 		--topic warehouse-events \
-		--bootstrap-server localhost:9092 \
+		--bootstrap-server kafka:29092 \
 		--partitions 3 \
+		--replication-factor 1 \
+		--if-not-exists
+	@echo "Creating warehouse-events-dlq topic..."
+	docker exec kafka kafka-topics --create \
+		--topic warehouse-events-dlq \
+		--bootstrap-server kafka:29092 \
+		--partitions 1 \
 		--replication-factor 1 \
 		--if-not-exists
 

@@ -13,6 +13,7 @@ type Config struct {
 type KafkaConfig struct {
 	Brokers []string
 	Topic string
+	DLQTopic string
 	ConsumerGroup string
 }
 
@@ -34,6 +35,7 @@ func LoadKafkaConfig() *KafkaConfig {
 	return &KafkaConfig{
 		Brokers: getEnvStringArr("KAFKA_BROKERS", []string{"localhost:9092"}),
 		Topic: getEnvString("KAFKA_TOPIC", "warehouse-events"),
+		DLQTopic: getEnvString("KAFKA_DLQ_TOPIC", "warehouse-events-dlq"),
 		ConsumerGroup: getEnvString("KAFKA_CONSUMER_GROUP", "warehouse-state-consumer"),
 	}
 }

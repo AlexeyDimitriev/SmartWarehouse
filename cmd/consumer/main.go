@@ -54,6 +54,7 @@ func main() {
 		kafka.ConsumerConfig{
 			Brokers: cfg.KafkaCfg.Brokers,
 			Topic: cfg.KafkaCfg.Topic,
+			DLQTopic: cfg.KafkaCfg.DLQTopic,
 			ConsumerGroup: cfg.KafkaCfg.ConsumerGroup,
 		},
 		handler,
