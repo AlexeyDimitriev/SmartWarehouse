@@ -137,21 +137,24 @@ func (r *Repository) SaveInventory(ctx context.Context, batch *gocql.Batch, inv 
     return nil
 }
 
-func (r *Repository) UpdateProductTotal(ctx context.Context, batch *gocql.Batch, productID string, availDelta, resDelta int) error {
-    batch.Query(`UPDATE inventory_by_product 
-        SET available = available + ?, reserved = reserved + ? 
-        WHERE product_id = ?`,
-        availDelta, resDelta, productID,
-    )
-
-	return nil
+func (r *Repository) UpdateProductTotal(ctx context.Context, batch *gocql.Batch, productID string, availDelta, resDelta int, lastUpdated time.Time, eventVersion int64) {
+	prod, err := r.GetByProduct(ctx, productID)
+	if err != port.ErrNotFound {
+		availDelta += prod.Available
+		resDelta += prod.Reserved
+	}
+	
+	batch.Query(`INSERT INTO inventory_by_product 
+		(product_id, available, reserved, last_updated, event_version) 
+		VALUES (?, ?, ?, ?, ?)`,
+		productID, availDelta, resDelta, lastUpdated, eventVersion)
 }
 
 func (r *Repository) SaveInventoryConsistently(ctx context.Context, inv *domain.Inventory, productID string, availDelta, resDelta int) error {
 	batch := r.session.NewBatch(gocql.LoggedBatch)
 
 	r.SaveInventory(ctx, batch, inv)
-	r.UpdateProductTotal(ctx, batch, productID, availDelta, resDelta)
+	r.UpdateProductTotal(ctx, batch, productID, availDelta, resDelta, inv.LastUpdated, inv.EventVersion)
 
 	if err := r.session.ExecuteBatch(batch); err != nil {
 		return fmt.Errorf("Failed to save inventory consistently: %w", err)

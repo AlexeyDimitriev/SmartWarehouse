@@ -24,7 +24,7 @@ docker-down:
 	docker-compose down
 
 .PHONY: create-topics
-	create-topics:
+create-topics:
 	@echo "Creating warehouse-events topic..."
 	docker exec kafka kafka-topics --create \
 		--topic warehouse-events \
